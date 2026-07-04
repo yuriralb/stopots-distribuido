@@ -562,4 +562,4 @@ class TerminalUI:
             print("Não houve ranking final disponível.")
             
         input("\nPressione Enter para voltar ao menu principal...")
-        self.conn.disconnect()
+        self.conn.leave_room()
