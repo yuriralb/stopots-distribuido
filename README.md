@@ -44,6 +44,3 @@ Para executar as validações de unidade automáticas:
 ```bash
 python -m unittest test_game.py
 ```
-# stopots-distribuido
-# stopots-distribuido
-# stopots-distribuido
