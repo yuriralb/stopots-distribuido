@@ -62,7 +62,10 @@ class StopotsService(rpyc.Service):
             self.nickname = nickname
             self.room_name = room_name
             print(f"[Service] Jogador '{nickname}' entrou na sala '{room_name}'.")
-            return list(room.categories)
+            # Retorna categorias e lista de jogadores atualmente na sala
+            with room.lock:
+                current_players = list(room.players.keys())
+            return {"categories": list(room.categories), "players": current_players}
         return None
 
     def exposed_leave_room(self, nickname: str):

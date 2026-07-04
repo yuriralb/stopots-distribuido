@@ -96,7 +96,10 @@ class ServerConnection:
                 self.state.nickname = nickname
                 self.state.room_name = name
                 self.state.is_host = False
-                self.state.categories = list(res)
+                self.state.categories = list(res["categories"])
+                # Popula a lista de jogadores com todos os que já estão na sala
+                with self.state.lock:
+                    self.state.players = list(res["players"])
                 return True
             return False
         except Exception as e:
