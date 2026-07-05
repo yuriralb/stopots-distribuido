@@ -9,8 +9,12 @@ class ServerConnection:
         self.state = state
         self.conn: Optional[rpyc.Connection] = None
         self.bg_thread: Optional[rpyc.BgServingThread] = None
+        self._host: str = "localhost"
+        self._port: int = 18861
 
     def connect(self, host: str, port: int) -> bool:
+        self._host = host
+        self._port = port
         try:
             # Estabelece conexão com o servidor passando nosso serviço de callback
             self.conn = rpyc.connect(
@@ -32,6 +36,45 @@ class ServerConnection:
             self.bg_thread = None
             return False
 
+    def reconnect(self) -> bool:
+        """Reconecta ao servidor, recriando a conexão RPyC do zero."""
+        self._close_connection()
+        self.state.reset_all()
+        return self.connect(self._host, self._port)
+
+    def _close_connection(self):
+        """Fecha a conexão RPyC e o BgServingThread de forma segura."""
+        if self.bg_thread:
+            try:
+                self.bg_thread.stop()
+            except Exception:
+                pass
+            self.bg_thread = None
+
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
+
+    def _is_connection_alive(self) -> bool:
+        """Verifica se a conexão RPyC ainda está funcional."""
+        if not self.conn:
+            return False
+        try:
+            self.conn.ping()
+            return True
+        except Exception:
+            return False
+
+    def _ensure_connection(self) -> bool:
+        """Garante que existe uma conexão ativa, reconectando se necessário."""
+        if self._is_connection_alive():
+            return True
+        print("[Conexão] Conexão perdida. Reconectando ao servidor...")
+        return self.reconnect()
+
     def disconnect(self):
         # Tenta notificar o servidor sobre a saída antes de fechar a conexão
         if self.conn and self.state.nickname:
@@ -40,26 +83,11 @@ class ServerConnection:
             except Exception:
                 pass
         
-        # Encerra o processamento do background
-        if self.bg_thread:
-            try:
-                self.bg_thread.stop()
-            except Exception:
-                pass
-            self.bg_thread = None
-
-        # Fecha a conexão
-        if self.conn:
-            try:
-                self.conn.close()
-            except Exception:
-                pass
-            self.conn = None
-            
+        self._close_connection()
         self.state.reset_all()
 
     def create_room(self, name: str, categories: List[str], num_rounds: int, nickname: str) -> bool:
-        if not self.conn:
+        if not self._ensure_connection():
             return False
         try:
             success = self.conn.root.create_room(name, categories, num_rounds, nickname)
@@ -78,7 +106,7 @@ class ServerConnection:
             return False
 
     def list_rooms(self) -> List[Dict[str, Any]]:
-        if not self.conn:
+        if not self._ensure_connection():
             return []
         try:
             # Converte a resposta do RPyC em uma lista nativa do Python
@@ -88,7 +116,7 @@ class ServerConnection:
             return []
 
     def join_room(self, name: str, nickname: str) -> bool:
-        if not self.conn:
+        if not self._ensure_connection():
             return False
         try:
             res = self.conn.root.join_room(name, nickname)
@@ -107,11 +135,13 @@ class ServerConnection:
             return False
 
     def leave_room(self):
-        if not self.conn:
+        # Captura o nickname antes de limpar o estado
+        nickname = self.state.nickname
+        if not self.conn or not nickname:
+            self.state.reset_all()
             return
         try:
-            if self.state.nickname:
-                self.conn.root.leave_room(self.state.nickname)
+            self.conn.root.leave_room(nickname)
         except Exception as e:
             print(f"Erro ao sair da sala: {e}")
         finally:
@@ -153,3 +183,4 @@ class ServerConnection:
             self.conn.root.submit_votes(self.state.nickname, native_votes)
         except Exception as e:
             print(f"Erro ao enviar votos: {e}")
+

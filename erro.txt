@@ -1,8 +1,1 @@
-
-1. Quando uma sala é criada e o host ou um jogador arbitrário tenta sair da sala, dá erro.
-
-2. Quando o usuário dá enter para voltar pro menu principal, demora muito.
-
-3. Após o usuário voltar para o menu principal, não é possível criar sala, entrar em sala e nem realizar outros comandos.
-
-4. Caso usuários entrem em uma sala e o host encerra a sala abruptamente, os usuários saem da sala mas suas ações seguintes demoram muito.
+1. Ao host sair da sala, os outros players (que nao sao hosts) não saem.

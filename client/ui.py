@@ -226,6 +226,8 @@ class TerminalUI:
                 if cancelled:
                     print(f"\n{RED}Partida cancelada: {self.state.cancelled_reason}{RESET}")
                     time.sleep(2)
+                    self.conn.leave_room()
+                    self.conn.reconnect()
                     return
                 
                 # Só limpa e redesenha a tela se houver mudança na lista de jogadores
@@ -341,6 +343,8 @@ class TerminalUI:
                 print(f"\n{RED}Partida interrompida: {self.state.cancelled_reason}{RESET}")
                 input("\nPressione Enter para voltar ao menu...")
                 self.state.cancelled_event.clear()
+                self.conn.leave_room()
+                self.conn.reconnect()
                 break
             
             # Espera 5 segundos visualmente para iniciar a próxima rodada
@@ -362,6 +366,8 @@ class TerminalUI:
                 print(f"\n{RED}Partida interrompida: {self.state.cancelled_reason}{RESET}")
                 input("\nPressione Enter para voltar ao menu...")
                 self.state.cancelled_event.clear()
+                self.conn.leave_room()
+                self.conn.reconnect()
                 break
 
     def run_filling_phase(self, categories: List[str], letter: str, time_limit: int) -> Dict[str, str]:

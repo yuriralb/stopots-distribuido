@@ -73,6 +73,7 @@ class Room:
         empty_room = False
         check_filling = False
         check_voting = False
+        should_notify_left = False
 
         with self.lock:
             if nickname not in self.players:
@@ -90,9 +91,8 @@ class Room:
             
             if not self.players:
                 empty_room = True
-            
-            # Notify others
-            self.notify_all("on_player_left", nickname)
+            else:
+                should_notify_left = True
             
             # Check player count if game is active
             if self.state != "LOBBY" and not empty_room:
@@ -108,6 +108,10 @@ class Room:
         if empty_room:
             self.cleanup()
             return
+        
+        # Notify after releasing lock to avoid deadlock
+        if should_notify_left:
+            self.notify_all("on_player_left", nickname)
             
         if game_cancelled:
             self.cancel_game("Jogadores insuficientes para continuar a partida.")
