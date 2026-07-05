@@ -7,3 +7,8 @@ se uma palavra está valida ou inválida.
 3. Se um jogador encerrar o programa de forma abrupta
 na tela de votação, o outro jogador fica esperando esse terminar,
 mas nunca termina.
+Se somente dois jogadores estiverem jogando, o servidor deve encerrar o jogo.
+Se mais de dois estiverem jogando, o jogo deve continuar sem o jogador que encerrou o programa.
+O servidor mantém os pontos do jogador que saiu registrados, mas não é
+mais pedido para os outros jogadores votarem nas palavras do outro jogador nos
+rounds seguintes.
