@@ -1,3 +1,5 @@
-1. Ao host sair da sala, os outros players (que nao sao hosts) não saem.
+1. 0 rodadas está sendo considerado como 1 rodada.
 
-2. 0 rodadas está sendo considerado como 1 rodada.
+2. A barra de progresso do tempo na tela de votação não
+está atualizando corretamente. Atualiza só após enviar 
+se uma palavra está valida ou inválida.
