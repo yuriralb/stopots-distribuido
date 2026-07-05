@@ -3,3 +3,7 @@
 2. A barra de progresso do tempo na tela de votação não
 está atualizando corretamente. Atualiza só após enviar 
 se uma palavra está valida ou inválida.
+
+3. Se um jogador encerrar o programa de forma abrupta
+na tela de votação, o outro jogador fica esperando esse terminar,
+mas nunca termina.
