@@ -26,6 +26,13 @@ def clear_screen():
     # Limpa a tela e posiciona o cursor no topo
     print("\033[H\033[J", end="")
 
+def safe_input(prompt, is_valid, error_msg):
+    while True:
+        res = input(prompt)
+        if is_valid(res):
+            return res
+        print(f"{RED}{error_msg}{RESET}")
+
 def input_with_timer_and_stop_event(prompt: str, stop_event: Any, timeout_at: float) -> Optional[str]:
     """
     Lê uma entrada do usuário no Linux de forma não-bloqueante caractere a caractere.
@@ -111,20 +118,12 @@ class TerminalUI:
         self.show_banner()
         print(f"{BOLD}=== CRIAR SALA ==={RESET}\n")
         
-        nickname = input("Digite seu Nickname: ").strip()
-        if not nickname:
-            print(f"{RED}Nickname não pode ser vazio!{RESET}")
-            time.sleep(1.5)
-            return
+        nickname = safe_input("Digite seu Nickname: ", lambda name : name, "Digite um nickname não-vazio, bundão!").strip()
 
-        room_name = input("Nome da Sala: ").strip()
-        if not room_name:
-            print(f"{RED}Nome da sala não pode ser vazio!{RESET}")
-            time.sleep(1.5)
-            return
+        room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
         print(f"\nCategorias padrão: {', '.join(DEFAULT_CATEGORIES)}")
-        use_custom = input("Deseja criar categorias personalizadas? (s/N): ").strip().lower()
+        use_custom = safe_input("Deseja criar categorias personalizadas? (s/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
         
         categories = DEFAULT_CATEGORIES
         if use_custom == "s":
@@ -132,14 +131,14 @@ class TerminalUI:
             if custom_cats:
                 categories = [c.strip() for c in custom_cats.split(",") if c.strip()]
         
-        rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
-        num_rounds = 5
-        if rounds_input.isdigit() and int(rounds_input) >= 1:
-            num_rounds = rounds_input
-        else:
-            print(f"{RED}Escolha um número de rodadas válido, bundão!{RESET}")
-            time.sleep(1.5)
-            return
+        while True:
+            rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
+            num_rounds = 5
+            if rounds_input.isdigit() and int(rounds_input) >= 1:
+                num_rounds = rounds_input
+                break
+            else:
+                print(f"{RED}Escolha um número de rodadas válido, bundão!{RESET}")
 
         print("\nCriando sala no servidor...")
         if self.conn.create_room(room_name, categories, num_rounds, nickname):
@@ -190,17 +189,9 @@ class TerminalUI:
         self.show_banner()
         print(f"{BOLD}=== ENTRAR EM SALA ==={RESET}\n")
         
-        room_name = input("Nome da Sala: ").strip()
-        if not room_name:
-            print(f"{RED}Nome da sala não pode ser vazio!{RESET}")
-            time.sleep(1.5)
-            return
+        room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
-        nickname = input("Digite seu Nickname: ").strip()
-        if not nickname:
-            print(f"{RED}Nickname não pode ser vazio!{RESET}")
-            time.sleep(1.5)
-            return
+        nickname = safe_input("Digite seu Nickname: ", lambda name : name, "Digite um nickname não-vazio, bundão!").strip()
 
         print("\nConectando à sala...")
         if self.conn.join_room(room_name, nickname):

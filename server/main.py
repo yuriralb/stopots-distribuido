@@ -8,7 +8,7 @@ from shared.constants import SERVER_PORT
 
 def main():
     print("=" * 65)
-    print(" INICIANDO SERVIDOR ADEDONALD (ADEDONHA DISTRIBUÍDA)")
+    print("       INICIANDO SERVIDOR ADEDONALD (ADEDONHA DISTRIBUÍDA)       ")
     print("=" * 65)
     
     # Instancia o gerenciador de salas
