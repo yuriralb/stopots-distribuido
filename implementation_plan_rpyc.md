@@ -29,9 +29,10 @@ Recriação do jogo STOPOTS (Adedonha) como aplicação cliente-servidor em Pyth
 
 ### RF04 — Fase de Votação
 - **RF04.1**: Após receber todas as respostas, o servidor distribui as palavras de cada jogador para todos votarem.
-- **RF04.2**: Para cada categoria, cada jogador vê as respostas dos **outros** jogadores e vota se a palavra é **válida** ou **inválida**.
+- **RF04.2**: Para cada categoria, cada jogador vê as respostas dos **outros** jogadores e vota se a palavra é **válida** ou **inválida**. Para votar, o sistema espera um input de tecla: 'v' para válido e 'i' para inválido.
+- A votação acontece por rodadas, onde cada rodada verifica as respostas de uma categoria. Ao final de todas as rodadas de votação, inicia-se uma nova rodada de partida, sorteando uma letra e prosseguindo.
 - **RF04.3**: O tempo limite de votação é de **15 segundos** (por categoria).
-- **RF04.4**: Se o tempo de votação esgotar, votos não enviados são considerados como **"válido"** (aprovação por padrão).
+- **RF04.4**: Se o tempo de votação esgotar, votos não enviados são considerados como **"válidos"** (aprovação por padrão).
 - **RF04.5**: Uma palavra é considerada **inválida** se a **maioria** dos jogadores votou contra ela.
 
 ### RF05 — Pontuação

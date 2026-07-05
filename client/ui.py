@@ -289,10 +289,6 @@ class TerminalUI:
                 categories = list(self.state.all_answers.get(self.state.nickname, {}).keys())
                 # Se ainda não estiver preenchido o dict local de respostas vazias, criamos
                 if not categories:
-                    # Buscamos as categorias do estado, mas espere, a conexão ou o RPyC salvou no state?
-                    # Vamos garantir que salvamos 'categories' no ClientState ao criar/entrar.
-                    # Sim, vamos olhar para 'self.state.all_answers' ou adicionar no ClientState.
-                    # Vamos adicionar categories no ClientState para segurança.
                     categories = self.state.categories
             
             self.state.round_started_event.clear()
@@ -319,7 +315,7 @@ class TerminalUI:
             self.state.voting_started_event.wait()
             self.state.voting_started_event.clear()
             
-            # 4. Fase de Votação
+            # 4. Fase de Votação — uma categoria por vez com timer de 15s
             votes = self.run_voting_phase(categories)
             
             # Envia os votos ao servidor
@@ -335,16 +331,28 @@ class TerminalUI:
             # Exibe o placar da rodada
             self.show_round_results()
             
-            # Espera 10 segundos visualmente para iniciar a próxima rodada
-            for i in range(10, 0, -1):
+            # Checa se o jogo acabou ANTES do countdown
+            if self.state.game_over_event.is_set():
+                self.state.game_over_event.clear()
+                self.show_game_over()
+                break
+                
+            if self.state.cancelled_event.is_set():
+                print(f"\n{RED}Partida interrompida: {self.state.cancelled_reason}{RESET}")
+                input("\nPressione Enter para voltar ao menu...")
+                self.state.cancelled_event.clear()
+                break
+            
+            # Espera 5 segundos visualmente para iniciar a próxima rodada
+            for i in range(5, 0, -1):
                 if self.state.game_over_event.is_set() or self.state.cancelled_event.is_set():
                     break
-                sys.stdout.write(f"\rPróxima rodada inicia em {i}s... ")
+                sys.stdout.write(f"\r  ⏳ Próxima rodada inicia em {YELLOW}{BOLD}{i}s{RESET}... ")
                 sys.stdout.flush()
                 time.sleep(1)
             print()
             
-            # Checa se o jogo acabou
+            # Verifica novamente se o jogo acabou durante o countdown
             if self.state.game_over_event.is_set():
                 self.state.game_over_event.clear()
                 self.show_game_over()
@@ -443,45 +451,145 @@ class TerminalUI:
             all_answers = dict(self.state.all_answers)
             players = list(self.state.players)
             nickname = self.state.nickname
-            time_limit = self.state.time_limit
-            
-        timeout_at = time.time() + time_limit
-        interrupted = False
+            vote_time = self.state.vote_time_per_category
         
-        for cat in categories:
-            if interrupted:
-                break
+        # Filtra apenas os outros jogadores (não vota em si mesmo)
+        other_players = [p for p in players if p != nickname]
+        
+        total_cats = len(categories)
+        
+        for cat_idx, cat in enumerate(categories):
+            # === TELA DE VOTAÇÃO PARA ESTA CATEGORIA ===
+            cat_timeout_at = time.time() + vote_time
+            cat_interrupted = False
             
+            # Coleta as respostas dos outros jogadores para esta categoria
+            player_words = []
+            for player in other_players:
+                word = all_answers.get(player, {}).get(cat, "").strip()
+                player_words.append((player, word))
+            
+            # Marca automaticamente palavras em branco como inválidas
+            for player, word in player_words:
+                if not word:
+                    votes[cat][player] = False
+            
+            # Filtra jogadores que precisam de votação manual (palavra não vazia)
+            players_to_vote = [(p, w) for p, w in player_words if w]
+            vote_idx = 0
+            
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setcbreak(fd)
+                
+                while vote_idx < len(players_to_vote):
+                    time_left = max(0, int(cat_timeout_at - time.time()))
+                    if time_left <= 0:
+                        cat_interrupted = True
+                        break
+                    
+                    # Redesenha a tela completa da categoria
+                    clear_screen()
+                    self.show_banner()
+                    print(f"{BOLD}{'═' * 55}{RESET}")
+                    print(f"  {MAGENTA}{BOLD}VOTAÇÃO{RESET} — Categoria {cat_idx + 1}/{total_cats}: {CYAN}{BOLD}{cat.upper()}{RESET}")
+                    print(f"{BOLD}{'═' * 55}{RESET}")
+                    
+                    # Timer visual
+                    timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
+                    bar_width = 30
+                    filled = int((time_left / vote_time) * bar_width)
+                    bar = "█" * filled + "░" * (bar_width - filled)
+                    print(f"  ⏱  {timer_color}[{bar}] {time_left}s{RESET}")
+                    print(f"{'─' * 55}")
+                    
+                    # Mostra todas as respostas com status
+                    for p_idx, (player, word) in enumerate(player_words):
+                        if not word:
+                            # Em branco — já marcada inválida
+                            print(f"  {RED}✗{RESET} {BOLD}{player}{RESET}: {RED}[Em branco]{RESET}")
+                        elif player in votes[cat]:
+                            # Já votado
+                            if votes[cat][player]:
+                                print(f"  {GREEN}✓{RESET} {BOLD}{player}{RESET}: '{word}' → {GREEN}Válida{RESET}")
+                            else:
+                                print(f"  {RED}✗{RESET} {BOLD}{player}{RESET}: '{word}' → {RED}Inválida{RESET}")
+                        elif p_idx == [i for i, (p, w) in enumerate(player_words) if p == players_to_vote[vote_idx][0]][0]:
+                            # Votação atual — destacada
+                            print(f"  {YELLOW}▸{RESET} {BOLD}{player}{RESET}: '{YELLOW}{word}{RESET}' — {BOLD}[V]{RESET}álida / {BOLD}[I]{RESET}nválida ?")
+                        else:
+                            # Pendente
+                            print(f"  {BLUE}○{RESET} {BOLD}{player}{RESET}: '{word}' — {BLUE}pendente{RESET}")
+                    
+                    print(f"{'─' * 55}")
+                    
+                    # Aguarda input não-bloqueante
+                    current_player, current_word = players_to_vote[vote_idx]
+                    
+                    # Poll para input com update de timer
+                    got_input = False
+                    while not got_input:
+                        time_left = max(0, int(cat_timeout_at - time.time()))
+                        if time_left <= 0:
+                            cat_interrupted = True
+                            break
+                        
+                        # Prompt inline com timer
+                        sys.stdout.write(f"\r\033[K  [{timer_color}Tempo: {time_left}s{RESET}] Voto para '{BOLD}{current_player}{RESET}': ")
+                        sys.stdout.flush()
+                        
+                        rlist, _, _ = select.select([sys.stdin], [], [], 0.5)
+                        if rlist:
+                            char = sys.stdin.read(1).lower()
+                            if char == 'v' or char == '\n' or char == '\r':
+                                votes[cat][current_player] = True
+                                got_input = True
+                            elif char == 'i':
+                                votes[cat][current_player] = False
+                                got_input = True
+                            elif char == '\x03':
+                                raise KeyboardInterrupt()
+                        
+                        # Atualiza cor do timer
+                        time_left = max(0, int(cat_timeout_at - time.time()))
+                        timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
+                    
+                    if cat_interrupted:
+                        break
+                    
+                    vote_idx += 1
+                    
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            
+            # Votos não dados para esta categoria → válidos por padrão (RF04.4)
+            for player, word in players_to_vote:
+                if player not in votes[cat]:
+                    votes[cat][player] = True
+            
+            # Tela de resumo rápido da categoria votada
             clear_screen()
             self.show_banner()
-            print(f"{BOLD}=== FASE DE VOTAÇÃO: {cat.upper()} ==={RESET}")
-            print(f"Avalie as palavras dos oponentes. Pressione Enter para VÁLIDO.")
-            print("-" * 55)
-            
-            for player in players:
-                if player == nickname:
-                    continue
-                
-                word = all_answers.get(player, {}).get(cat, "").strip()
+            print(f"{BOLD}{'═' * 55}{RESET}")
+            print(f"  {GREEN}✔{RESET} Votação da categoria '{CYAN}{BOLD}{cat.upper()}{RESET}' concluída!")
+            print(f"{BOLD}{'═' * 55}{RESET}")
+            for player, word in player_words:
                 if not word:
-                    # Palavra em branco é automaticamente inválida
-                    votes[cat][player] = False
-                    print(f" • {player}: {RED}[Em branco - Inválida]{RESET}")
-                    continue
-                
-                prompt = f"Jogador '{player}' escreveu '{word}'. É válida? [V/i]: "
-                vote_str = input_with_timer_and_stop_event(prompt, self.state.stop_event, timeout_at)
-                
-                if vote_str is None or time.time() >= timeout_at:
-                    interrupted = True
-                    break
-                
-                # Se digitar 'i', é inválido. Caso contrário, válido.
-                votes[cat][player] = vote_str.lower() != "i"
-                status_color = GREEN if votes[cat][player] else RED
-                status_text = "Válido" if votes[cat][player] else "Inválido"
-                print(f" -> Voto registrado: {status_color}{status_text}{RESET}")
-                
+                    print(f"  {RED}✗{RESET} {player}: [Em branco]")
+                elif votes[cat].get(player, True):
+                    print(f"  {GREEN}✓{RESET} {player}: '{word}' → Válida")
+                else:
+                    print(f"  {RED}✗{RESET} {player}: '{word}' → Inválida")
+            print(f"{'─' * 55}")
+            
+            if cat_idx < total_cats - 1:
+                print(f"\n  Próxima categoria em 2s...")
+                time.sleep(2)
+            else:
+                print(f"\n  {GREEN}{BOLD}Votação finalizada!{RESET} Enviando votos...")
+                time.sleep(1)
+        
         return votes
 
     def show_round_results(self):
@@ -540,26 +648,66 @@ class TerminalUI:
     def show_game_over(self):
         clear_screen()
         self.show_banner()
-        print(f"{GREEN}{BOLD}=" * 55)
-        print("                PARTIDA CONCLUÍDA!             ")
-        print("=" * 55 + f"{RESET}\n")
         
         with self.state.lock:
             ranking = list(self.state.final_ranking)
+        
+        print(f"{YELLOW}{BOLD}")
+        print("╔═══════════════════════════════════════════════════╗")
+        print("║           🏆  PARTIDA CONCLUÍDA!  🏆            ║")
+        print("╚═══════════════════════════════════════════════════╝")
+        print(f"{RESET}")
             
         if ranking:
             winner = ranking[0][0]
-            print(f"🏆 {BOLD}O VENCEDOR É: {YELLOW}{winner}{RESET} com {BOLD}{ranking[0][1]} pontos!{RESET}\n")
-            print(f"{BOLD}=== RANKING FINAL ==={RESET}")
-            print(f"{BOLD}{'Pos':<5} | {'Jogador':<25} | {'Pontos':<10}{RESET}")
-            print("-" * 45)
+            winner_score = ranking[0][1]
+            
+            # ASCII art do troféu com nome do campeão
+            print(f"{YELLOW}{BOLD}")
+            print("                    ___________")
+            print("                   '._==_==_=_.'")
+            print("                   .-\\:      /-.")
+            print("                  | (|:.     |) |")
+            print("                   '-|:.     |-'")
+            print("                     \\::.    /")
+            print("                      '::. .'")
+            print("                        ) (")
+            print("                      _.' '._")
+            print("                     '-------'")
+            print(f"{RESET}")
+            
+            print(f"  {BOLD}O GRANDE CAMPEÃO É:{RESET}")
+            print(f"  {YELLOW}{BOLD}  ★  {winner}  ★  {RESET} com {GREEN}{BOLD}{winner_score} pontos!{RESET}")
+            print()
+            
+            # Ranking final estilizado
+            print(f"{BOLD}{'═' * 55}{RESET}")
+            print(f"  {BOLD}RANKING FINAL{RESET}")
+            print(f"{BOLD}{'═' * 55}{RESET}")
+            print(f"  {BOLD}{'Pos':<5} {'Jogador':<25} {'Pontos':<10}{RESET}")
+            print(f"  {'─' * 45}")
+            
             for idx, (p, score) in enumerate(ranking):
                 pos = idx + 1
-                medal = "🥇 " if pos == 1 else "🥈 " if pos == 2 else "🥉 " if pos == 3 else "   "
-                print(f"{medal}{pos:<2} | {p:<25} | {score:<10}")
-            print("-" * 45)
-        else:
-            print("Não houve ranking final disponível.")
+                if pos == 1:
+                    medal = f"{YELLOW}🥇"
+                    color = YELLOW
+                elif pos == 2:
+                    medal = f"{WHITE}🥈"
+                    color = WHITE
+                elif pos == 3:
+                    medal = f"{RED}🥉"
+                    color = RED
+                else:
+                    medal = "   "
+                    color = ""
+                
+                print(f"  {medal} {color}{BOLD}{pos:<3}{RESET} {color}{p:<25}{RESET} {color}{BOLD}{score:<10}{RESET}")
             
-        input("\nPressione Enter para voltar ao menu principal...")
+            print(f"  {'─' * 45}")
+        else:
+            print("  Não houve ranking final disponível.")
+        
+        print()
+        input(f"  Pressione {BOLD}Enter{RESET} para voltar ao menu principal...")
         self.conn.leave_room()

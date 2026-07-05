@@ -21,6 +21,7 @@ class ClientState:
         self.round_number = 0
         self.total_rounds = 0
         self.time_limit = 0
+        self.vote_time_per_category = 15  # seconds per category during voting
         
         # Payloads de Dados
         self.all_answers: Dict[str, Dict[str, str]] = {}
@@ -100,6 +101,9 @@ class ClientCallbackService(rpyc.Service):
             # Converte netrefs do RPyC em dicionários puros do Python
             self.state.all_answers = {p: dict(ans) for p, ans in all_answers.items()}
             self.state.time_limit = time_limit
+            # Calcula tempo por categoria a partir do total
+            num_cats = len(self.state.categories) if self.state.categories else 1
+            self.state.vote_time_per_category = max(1, time_limit // num_cats)
         self.state.voting_started_event.set()
 
     def exposed_on_round_results(self, results: Dict[str, Any]):
