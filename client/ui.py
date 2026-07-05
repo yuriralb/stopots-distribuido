@@ -134,8 +134,12 @@ class TerminalUI:
         
         rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
         num_rounds = 5
-        if rounds_input.isdigit():
-            num_rounds = max(1, int(rounds_input))
+        if rounds_input.isdigit() and int(rounds_input) >= 1:
+            num_rounds = rounds_input
+        else:
+            print(f"{RED}Escolha um número de rodadas válido, bundão!{RESET}")
+            time.sleep(1.5)
+            return
 
         print("\nCriando sala no servidor...")
         if self.conn.create_room(room_name, categories, num_rounds, nickname):
