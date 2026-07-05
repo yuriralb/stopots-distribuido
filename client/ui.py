@@ -135,7 +135,7 @@ class TerminalUI:
         rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
         num_rounds = 5
         if rounds_input.isdigit():
-            num_rounds = int(rounds_input)
+            num_rounds = max(1, int(rounds_input))
 
         print("\nCriando sala no servidor...")
         if self.conn.create_room(room_name, categories, num_rounds, nickname):

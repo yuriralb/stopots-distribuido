@@ -70,6 +70,7 @@ class Room:
 
     def remove_player(self, nickname: str):
         game_cancelled = False
+        host_left_lobby = False
         empty_room = False
         check_filling = False
         check_voting = False
@@ -79,23 +80,25 @@ class Room:
             if nickname not in self.players:
                 return
             
+            is_host = (self.host == nickname)
+            was_lobby = (self.state == "LOBBY")
+            
             del self.players[nickname]
             # Keep the accumulated score for history, but player is no longer active
             
-            # Reassign host if the host disconnected
-            if self.host == nickname:
-                if self.players:
-                    self.host = list(self.players.keys())[0]
-                else:
-                    self.host = ""
-            
             if not self.players:
                 empty_room = True
+            elif is_host and was_lobby:
+                # Host saiu do lobby — fechar a sala para todos
+                host_left_lobby = True
             else:
                 should_notify_left = True
+                # Reassign host if the host disconnected during game
+                if is_host:
+                    self.host = list(self.players.keys())[0]
             
             # Check player count if game is active
-            if self.state != "LOBBY" and not empty_room:
+            if self.state != "LOBBY" and not empty_room and not host_left_lobby:
                 if len(self.players) < MIN_PLAYERS:
                     game_cancelled = True
                 else:
@@ -107,6 +110,10 @@ class Room:
                         
         if empty_room:
             self.cleanup()
+            return
+        
+        if host_left_lobby:
+            self.cancel_game("O host encerrou a sala.")
             return
         
         # Notify after releasing lock to avoid deadlock
