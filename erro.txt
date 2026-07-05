@@ -3,3 +3,18 @@
 2. A barra de progresso do tempo na tela de votação não
 está atualizando corretamente. Atualiza só após enviar 
 se uma palavra está valida ou inválida.
+
+3. Se um jogador encerrar o programa de forma abrupta
+na tela de votação, o outro jogador fica esperando esse terminar,
+mas nunca termina.
+
+- Se somente dois jogadores estiverem jogando, e um jogador sair, o outro deve
+continuar votando na fase de votação até o fim dessa fase de votação (fim de todas as categorias). 
+Quando chegar no último round de votação (fim de todas as categorias), o servidor deve encerrar o jogo mostrando o ranking.
+
+- Se mais de dois estiverem jogando, o jogo deve continuar sem o jogador que encerrou o programa:
+O servidor deve manter os pontos do jogador que saiu registrados, mas não deve
+mais pedir para os outros jogadores votarem nas palavras do jogador que saiu
+nos rounds das letras seguintes. Porém, durante a fase de votação a qual saiu,
+os outros jogadores devem votar nas palavras dos outros jogadores normalmente (incluse
+as do jogador que saiu).
