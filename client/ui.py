@@ -78,7 +78,7 @@ class TerminalUI:
 
     def show_banner(self):
         print(f"{CYAN}{BOLD}" + "=" * 55)
-        print("          STOPOTS — JOGO DE ADEDONHA ONLINE (RPyC)     ")
+        print("            ADEDONALD (ADEDONHA DISTRIBUÍDA)             ")
         print("=" * 55 + f"{RESET}")
 
     def show_main_menu(self):
@@ -99,7 +99,7 @@ class TerminalUI:
             elif choice == "3":
                 self.action_join_room()
             elif choice == "4":
-                print("Obrigado por jogar STOPOTS!")
+                print("Obrigado por jogar ADEDONALD!")
                 self.conn.disconnect()
                 sys.exit(0)
             else:

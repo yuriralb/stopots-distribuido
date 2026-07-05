@@ -17,7 +17,7 @@ def main():
     ui = TerminalUI(state, conn)
     
     print("=" * 55)
-    print("        INICIALIZANDO CLIENTE STOPOTS (RPyC)")
+    print("        INICIALIZANDO CLIENTE ADEDONALD (RPyC)")
     print("=" * 55)
     
     # Pede o endereço do servidor

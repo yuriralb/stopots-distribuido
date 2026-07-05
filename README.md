@@ -1,6 +1,6 @@
-# STOPOTS — Jogo de Adedonha Online (Terminal + RPyC)
+# ADEDONALD — Jogo de Adedonha Online
 
-Este é um jogo multiplayer de STOPOTS (Adedonha) implementado em Python utilizando a biblioteca RPyC para comunicação em rede transparente e uma interface iterativa em linha de comando (CLI) via terminal.
+ADEDONALD é um jogo multiplayer de adedonha implementado em Python utilizando a biblioteca RPyC para comunicação em rede transparente e uma interface iterativa em linha de comando (CLI) via terminal.
 
 ## Requisitos
 

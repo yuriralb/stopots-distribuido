@@ -3,7 +3,7 @@
 import rpyc
 from typing import List, Dict, Any
 
-class StopotsService(rpyc.Service):
+class AdedonaldService(rpyc.Service):
     room_manager = None  # Definido na inicialização do servidor
 
     def on_connect(self, conn):

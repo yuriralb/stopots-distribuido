@@ -3,23 +3,23 @@
 import rpyc
 from rpyc.utils.server import ThreadedServer
 from server.room_manager import RoomManager
-from server.service import StopotsService
+from server.service import AdedonaldService
 from shared.constants import SERVER_PORT
 
 def main():
-    print("=" * 50)
-    print(" INICIANDO SERVIDOR STOPOTS (ADEDONHA)")
-    print("=" * 50)
+    print("=" * 65)
+    print(" INICIANDO SERVIDOR ADEDONALD (ADEDONHA DISTRIBUÍDA)")
+    print("=" * 65)
     
     # Instancia o gerenciador de salas
     room_manager = RoomManager()
     
     # Vincula o gerenciador de salas ao serviço RPyC
-    StopotsService.room_manager = room_manager
+    AdedonaldService.room_manager = room_manager
     
     # Configura e inicia o servidor multithreaded
     server = ThreadedServer(
-        StopotsService,
+        AdedonaldService,
         port=SERVER_PORT,
         protocol_config={
             "allow_public_attrs": True,
@@ -27,7 +27,7 @@ def main():
         }
     )
     
-    print(f"Servidor STOPOTS RPyC rodando com sucesso na porta {SERVER_PORT}...")
+    print(f"Servidor ADEDONALD RPyC rodando com sucesso na porta {SERVER_PORT}...")
     try:
         server.start()
     except KeyboardInterrupt:
