@@ -49,7 +49,7 @@ class RoomManager:
                     num_players = len(room.players)
                     status = room.state
                 
-                if num_players == 0 or (status != "LOBBY" and num_players < 2):
+                if num_players == 0:
                     del self.rooms[room_name]
                     room.cleanup()
                     print(f"[RoomManager] Sala '{room_name}' limpa e removida do sistema.")
