@@ -441,7 +441,7 @@ class TerminalUI:
                 finished = True
                 print("\nTodas as categorias preenchidas!")
                 print("Opções:")
-                print(" - Digite o número (1 a N) da categoria para alterar")
+                print(f" - Digite o número (1 a {num_cats}) da categoria para alterar")
                 print(" - Digite '/stop' para acionar o STOP")
                 print(" - Pressione Enter para aguardar o fim do tempo")
                 
