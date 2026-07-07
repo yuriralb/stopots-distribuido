@@ -123,13 +123,13 @@ class TerminalUI:
         room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
         print(f"\nCategorias padrão: {', '.join(DEFAULT_CATEGORIES)}")
-        use_custom = safe_input("Deseja criar categorias personalizadas? (s/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
+        use_custom = safe_input("Deseja criar categorias personalizadas? (S/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
         
         categories = DEFAULT_CATEGORIES
         if use_custom == "s":
             custom_cats = input("Digite as categorias separadas por vírgula: ").strip()
             if custom_cats:
-                categories = [c.strip() for c in custom_cats.split(",") if c.strip()]
+                categories += [c.strip() for c in custom_cats.split(",") if c.strip()]
         
         while True:
             rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
@@ -526,11 +526,6 @@ class TerminalUI:
                     
                     # Timer visual
                     timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
-                    bar_width = 30
-                    filled = int((time_left / vote_time) * bar_width)
-                    bar = "█" * filled + "░" * (bar_width - filled)
-                    print(f"  ⏱  {timer_color}[{bar}] {time_left}s{RESET}")
-                    print(f"{'─' * 55}")
                     
                     # Mostra todas as respostas com status
                     for p_idx, (player, word) in enumerate(player_words):
