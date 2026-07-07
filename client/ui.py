@@ -397,7 +397,8 @@ class TerminalUI:
         cat_idx = 0
         num_cats = len(categories)
         timeout_at = time.time() + time_limit
-        
+        finished = False
+
         while not self.state.stop_event.is_set() and time.time() < timeout_at:
             # Imprime resumo do preenchimento atual
             clear_screen()
@@ -432,8 +433,12 @@ class TerminalUI:
                         time.sleep(1.0)
                     answers[cat] = ans
                     cat_idx += 1
+
+                if finished:
+                    cat_idx = num_cats
             else:
                 # Revisão final
+                finished = True
                 print("\nTodas as categorias preenchidas!")
                 print("Opções:")
                 print(" - Digite o número (1 a N) da categoria para alterar")
