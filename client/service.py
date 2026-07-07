@@ -117,9 +117,17 @@ class ClientCallbackService(rpyc.Service):
             self.state.game_state = "GAME_OVER"
             self.state.final_ranking = list(final_ranking)
         self.state.game_over_event.set()
+        # Desbloqueia qualquer wait em round_started, voting_started ou results_received
+        self.state.round_started_event.set()
+        self.state.voting_started_event.set()
+        self.state.results_received_event.set()
 
     def exposed_on_game_cancelled(self, reason: str):
         with self.state.lock:
             self.state.game_state = "GAME_OVER"
             self.state.cancelled_reason = reason
         self.state.cancelled_event.set()
+        # Desbloqueia qualquer wait em round_started, voting_started ou results_received
+        self.state.round_started_event.set()
+        self.state.voting_started_event.set()
+        self.state.results_received_event.set()

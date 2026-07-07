@@ -272,8 +272,35 @@ class TerminalUI:
             self.state.round_started_event.wait()
             
             with self.state.lock:
-                if self.state.cancelled_event.is_set():
-                    break
+                if self.state.game_over_event.is_set():
+                    self.state.game_over_event.clear()
+                    # Libera o lock antes de mostrar a tela de game over
+                    show_game_over = True
+                else:
+                    show_game_over = False
+                
+                if show_game_over:
+                    pass  # Tratado abaixo fora do lock
+                elif self.state.cancelled_event.is_set():
+                    cancelled_reason = self.state.cancelled_reason
+                    self.state.cancelled_event.clear()
+                    # Tratado abaixo fora do lock
+                    show_cancelled = True
+                else:
+                    show_cancelled = False
+            
+            if show_game_over:
+                self.show_game_over()
+                break
+            
+            if show_cancelled:
+                print(f"\n{RED}Partida interrompida: {cancelled_reason}{RESET}")
+                input("\nPressione Enter para voltar ao menu...")
+                self.conn.leave_room()
+                self.conn.reconnect()
+                break
+            
+            with self.state.lock:
                 letter = self.state.current_letter
                 round_num = self.state.round_number
                 total_rounds = self.state.total_rounds
