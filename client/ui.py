@@ -405,8 +405,8 @@ class TerminalUI:
             self.show_banner()
             print(f"Letra Sorteada: {YELLOW}{BOLD}{letter}{RESET} | Digite {BOLD}/stop{RESET} para parar (todas preenchidas)")
             print("-" * 55)
-            for cat in categories:
-                print(f" • {BOLD}{cat:<12}:{RESET} {answers[cat]}")
+            for idx, cat in categories:
+                print(f" • [{idx + 1}] {BOLD}{cat:<12}:{RESET} {answers[cat]}")
             print("-" * 55)
             
             if cat_idx < num_cats:
