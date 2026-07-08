@@ -7,12 +7,12 @@ ADEDONALD é um jogo multiplayer de adedonha implementado em Python utilizando a
 - Python 3.10+
 - RPyC
 
-## Instalação
+## Instalação do Cliente e do Servidor
 
-Instale as dependências executando o comando abaixo:
+Instale as dependências do cliente e do servidor executando o comando abaixo:
 
 ```bash
-pip install -r requirements.txt
+source setup.sh
 ```
 
 ## Como Executar
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Em um terminal, execute:
 
 ```bash
-python -m server.main
+./server_run.sh
 ```
 
 O servidor será iniciado na porta `18861`.
@@ -32,15 +32,7 @@ O servidor será iniciado na porta `18861`.
 Em outros terminais (são necessários pelo menos 2 jogadores para iniciar uma partida), execute:
 
 ```bash
-python -m client.main
+./client_run.sh
 ```
 
 Siga as instruções na tela para conectar-se ao servidor (padrão: `localhost`), definir seu nickname e criar ou entrar em uma sala.
-
-## Testes
-
-Para executar as validações de unidade automáticas:
-
-```bash
-python -m unittest test_game.py
-```
