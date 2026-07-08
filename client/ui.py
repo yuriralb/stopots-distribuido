@@ -123,13 +123,13 @@ class TerminalUI:
         room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
         print(f"\nCategorias padrão: {', '.join(DEFAULT_CATEGORIES)}")
-        use_custom = safe_input("Deseja criar categorias personalizadas? (s/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
+        use_custom = safe_input("Deseja criar categorias personalizadas? (S/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
         
         categories = DEFAULT_CATEGORIES
         if use_custom == "s":
             custom_cats = input("Digite as categorias separadas por vírgula: ").strip()
             if custom_cats:
-                categories = [c.strip() for c in custom_cats.split(",") if c.strip()]
+                categories += [c.strip() for c in custom_cats.split(",") if c.strip()]
         
         while True:
             rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
@@ -272,8 +272,35 @@ class TerminalUI:
             self.state.round_started_event.wait()
             
             with self.state.lock:
-                if self.state.cancelled_event.is_set():
-                    break
+                if self.state.game_over_event.is_set():
+                    self.state.game_over_event.clear()
+                    # Libera o lock antes de mostrar a tela de game over
+                    show_game_over = True
+                else:
+                    show_game_over = False
+                
+                if show_game_over:
+                    pass  # Tratado abaixo fora do lock
+                elif self.state.cancelled_event.is_set():
+                    cancelled_reason = self.state.cancelled_reason
+                    self.state.cancelled_event.clear()
+                    # Tratado abaixo fora do lock
+                    show_cancelled = True
+                else:
+                    show_cancelled = False
+            
+            if show_game_over:
+                self.show_game_over()
+                break
+            
+            if show_cancelled:
+                print(f"\n{RED}Partida interrompida: {cancelled_reason}{RESET}")
+                input("\nPressione Enter para voltar ao menu...")
+                self.conn.leave_room()
+                self.conn.reconnect()
+                break
+            
+            with self.state.lock:
                 letter = self.state.current_letter
                 round_num = self.state.round_number
                 total_rounds = self.state.total_rounds
@@ -370,15 +397,16 @@ class TerminalUI:
         cat_idx = 0
         num_cats = len(categories)
         timeout_at = time.time() + time_limit
-        
+        finished = False
+
         while not self.state.stop_event.is_set() and time.time() < timeout_at:
             # Imprime resumo do preenchimento atual
             clear_screen()
             self.show_banner()
             print(f"Letra Sorteada: {YELLOW}{BOLD}{letter}{RESET} | Digite {BOLD}/stop{RESET} para parar (todas preenchidas)")
             print("-" * 55)
-            for cat in categories:
-                print(f" • {BOLD}{cat:<12}:{RESET} {answers[cat]}")
+            for idx, cat in enumerate(categories):
+                print(f" • [{idx + 1}] {BOLD}{cat:<12}:{RESET} {answers[cat]}")
             print("-" * 55)
             
             if cat_idx < num_cats:
@@ -405,11 +433,15 @@ class TerminalUI:
                         time.sleep(1.0)
                     answers[cat] = ans
                     cat_idx += 1
+
+                if finished:
+                    cat_idx = num_cats
             else:
                 # Revisão final
+                finished = True
                 print("\nTodas as categorias preenchidas!")
                 print("Opções:")
-                print(" - Digite o número (1 a N) da categoria para alterar")
+                print(f" - Digite o número (1 a {num_cats}) da categoria para alterar")
                 print(" - Digite '/stop' para acionar o STOP")
                 print(" - Pressione Enter para aguardar o fim do tempo")
                 
@@ -499,11 +531,6 @@ class TerminalUI:
                     
                     # Timer visual
                     timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
-                    bar_width = 30
-                    filled = int((time_left / vote_time) * bar_width)
-                    bar = "█" * filled + "░" * (bar_width - filled)
-                    print(f"  ⏱  {timer_color}[{bar}] {time_left}s{RESET}")
-                    print(f"{'─' * 55}")
                     
                     # Mostra todas as respostas com status
                     for p_idx, (player, word) in enumerate(player_words):

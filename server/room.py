@@ -28,6 +28,12 @@ class Room:
         self.used_letters: Set[str] = set()
         self.accumulated_scores: Dict[str, int] = {}
         
+        # Jogadores que desconectaram durante a rodada ativa
+        # Mantidos para que seus dados (respostas/pontos) sejam processados na rodada atual
+        self.disconnected_players: Set[str] = set()
+        # Flag para encerrar o jogo após a rodada atual (ex: restou só 1 jogador)
+        self.force_game_over_after_round: bool = False
+        
         # Round-specific states
         self.letter = ""
         self.current_answers: Dict[str, Dict[str, str]] = {}  # nickname -> category -> word
@@ -69,7 +75,6 @@ class Room:
         return True
 
     def remove_player(self, nickname: str):
-        game_cancelled = False
         host_left_lobby = False
         empty_room = False
         check_filling = False
@@ -82,9 +87,14 @@ class Room:
             
             is_host = (self.host == nickname)
             was_lobby = (self.state == "LOBBY")
+            is_game_active = self.state in ("FILLING", "VOTING", "ROUND_END", "PLAYING")
             
             del self.players[nickname]
             # Keep the accumulated score for history, but player is no longer active
+            
+            # Rastreia o jogador desconectado se o jogo estava ativo
+            if is_game_active:
+                self.disconnected_players.add(nickname)
             
             if not self.players:
                 empty_room = True
@@ -97,16 +107,17 @@ class Room:
                 if is_host:
                     self.host = list(self.players.keys())[0]
             
-            # Check player count if game is active
-            if self.state != "LOBBY" and not empty_room and not host_left_lobby:
+            # Se o jogo está ativo e restou apenas 1 jogador, marcar para encerrar
+            # após a rodada atual (ao invés de cancelar imediatamente)
+            if is_game_active and not empty_room and not host_left_lobby:
                 if len(self.players) < MIN_PLAYERS:
-                    game_cancelled = True
-                else:
-                    # If game is running, check if this disconnection unblocks the current phase
-                    if self.state == "FILLING":
-                        check_filling = True
-                    elif self.state == "VOTING":
-                        check_voting = True
+                    self.force_game_over_after_round = True
+                
+                # Verifica se a desconexão desbloqueia a fase atual
+                if self.state == "FILLING":
+                    check_filling = True
+                elif self.state == "VOTING":
+                    check_voting = True
                         
         if empty_room:
             self.cleanup()
@@ -119,10 +130,6 @@ class Room:
         # Notify after releasing lock to avoid deadlock
         if should_notify_left:
             self.notify_all("on_player_left", nickname)
-            
-        if game_cancelled:
-            self.cancel_game("Jogadores insuficientes para continuar a partida.")
-            return
 
         if check_filling:
             self._check_and_end_filling_if_complete()
@@ -217,12 +224,14 @@ class Room:
                 return
             
             # Format: votes = { category: { player: is_valid } }
-            # Validate input structure
+            # Validate input structure — incluir jogadores desconectados que
+            # ainda têm respostas nesta rodada (para que seus votos sejam contados)
+            all_round_players = set(self.players.keys()) | self.disconnected_players
             sanitized_votes = {}
             for cat in self.categories:
                 sanitized_votes[cat] = {}
                 cat_votes = votes.get(cat, {})
-                for p in self.players:
+                for p in all_round_players:
                     if p != nickname:
                         sanitized_votes[cat][p] = bool(cat_votes.get(p, True))
             
@@ -262,7 +271,9 @@ class Room:
             self.state = "VOTING"
             
             # Fill missing answers with empty strings for players who didn't submit
-            for p in self.players:
+            # Inclui jogadores conectados E desconectados nesta rodada
+            all_round_players = set(self.players.keys()) | self.disconnected_players
+            for p in all_round_players:
                 if p not in self.current_answers:
                     self.current_answers[p] = {cat: "" for cat in self.categories}
             
@@ -300,26 +311,30 @@ class Room:
             self._cancel_timer("voting")
             self.state = "ROUND_END"
             
-            players_list = list(self.players.keys())
+            # Lista combinada: jogadores conectados + desconectados nesta rodada
+            # para que os pontos dos desconectados sejam computados
+            all_round_players = list(self.players.keys()) + list(self.disconnected_players)
+            connected_players = list(self.players.keys())
             
-            # Fill missing votes with True (valid)
-            for p in players_list:
+            # Fill missing votes with True (valid) — apenas para jogadores conectados
+            # Jogadores desconectados não votam, seus votos são ignorados
+            for p in connected_players:
                 if p not in self.current_votes:
                     self.current_votes[p] = {
-                        cat: {other: True for other in players_list if other != p}
+                        cat: {other: True for other in all_round_players if other != p}
                         for cat in self.categories
                     }
             
-            # Tally votes & calculate scores
+            # Tally votes & calculate scores usando todos os jogadores da rodada
             approvals = engine.tally_votes(
-                players_list,
+                all_round_players,
                 self.categories,
                 self.current_votes,
                 self.current_answers
             )
             
             round_scores, details = engine.calculate_scores(
-                players_list,
+                all_round_players,
                 self.categories,
                 self.letter,
                 self.current_answers,
@@ -369,8 +384,20 @@ class Room:
             
             self._cancel_timer("results")
             
-            if self.current_round < self.num_rounds:
+            # Se restou apenas 1 jogador (ou menos), encerrar o jogo
+            if self.force_game_over_after_round:
+                self.state = "GAME_OVER"
+                should_end_game = True
+                final_ranking = sorted(
+                    self.accumulated_scores.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )
+            elif self.current_round < self.num_rounds:
                 self.current_round += 1
+                # Limpar jogadores desconectados da rodada anterior —
+                # nas próximas rodadas eles não participam mais
+                self.disconnected_players.clear()
                 should_start_round = True
             else:
                 self.state = "GAME_OVER"
