@@ -365,9 +365,9 @@ class Room:
 
             result_payload = result.to_dict()
 
-            # Set up timer to transition to the next round (or finish) after 5s
+            # Set up timer to transition to the next round (or finish) after 15s
             self._cancel_timer("results")
-            self.results_timer = threading.Timer(5, self.start_next_round_or_finish)
+            self.results_timer = threading.Timer(15, self.start_next_round_or_finish)
             self.results_timer.daemon = True
             self.results_timer.start()
 

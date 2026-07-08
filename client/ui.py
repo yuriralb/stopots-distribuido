@@ -369,8 +369,8 @@ class TerminalUI:
                 self.conn.reconnect()
                 break
 
-            # Espera 5 segundos visualmente para iniciar a próxima rodada
-            for i in range(5, 0, -1):
+            # Espera 15 segundos visualmente para iniciar a próxima rodada
+            for i in range(15, 0, -1):
                 if self.state.game_over_event.is_set() or self.state.cancelled_event.is_set():
                     break
                 sys.stdout.write(f"\r  ⏳ Próxima rodada inicia em {YELLOW}{BOLD}{i}s{RESET}... ")
