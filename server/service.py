@@ -25,12 +25,12 @@ class AdedonaldService(rpyc.Service):
     def exposed_create_room(self, name: str, categories: List[str], num_rounds: int, nickname: str) -> bool:
         if not self.room_manager:
             return False
-        
+
         # Cria a sala com o nickname como host
         room = self.room_manager.create_room(name, nickname, categories, num_rounds)
         if not room:
             return False
-            
+
         # Conecta o host
         callback = self._conn.root
         success = room.add_player(nickname, callback)
@@ -51,11 +51,11 @@ class AdedonaldService(rpyc.Service):
     def exposed_join_room(self, room_name: str, nickname: str) -> Any:
         if not self.room_manager:
             return None
-            
+
         room = self.room_manager.get_room(room_name)
         if not room:
             return None
-            
+
         callback = self._conn.root
         success = room.add_player(nickname, callback)
         if success:

@@ -7,14 +7,14 @@ from typing import Dict, List, Any
 class ClientState:
     def __init__(self):
         self.lock = threading.Lock()
-        
+
         # Informações do Jogador e Sala
         self.nickname = ""
         self.room_name = ""
         self.players: List[str] = []
         self.categories: List[str] = []
         self.is_host = False
-        
+
         # Estado do Jogo
         self.game_state = "LOBBY"  # LOBBY, FILLING, VOTING, ROUND_END, GAME_OVER
         self.current_letter = ""
@@ -22,13 +22,13 @@ class ClientState:
         self.total_rounds = 0
         self.time_limit = 0
         self.vote_time_per_category = 15  # seconds per category during voting
-        
+
         # Payloads de Dados
         self.all_answers: Dict[str, Dict[str, str]] = {}
         self.round_results: Dict[str, Any] = {}
         self.final_ranking: List[Any] = []
         self.cancelled_reason = ""
-        
+
         # Eventos de Sincronização da Thread de UI
         self.game_started_event = threading.Event()
         self.round_started_event = threading.Event()

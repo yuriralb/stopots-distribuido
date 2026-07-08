@@ -61,22 +61,22 @@ def tally_votes(
         for target_player in players:
             # Jogadores votantes (todos exceto o próprio dono da resposta)
             voters = [p for p in players if p != target_player]
-            
+
             invalid_votes = 0
             valid_votes = 0
-            
+
             for voter in voters:
                 # Resgate do voto do voter
                 voter_votes = votes.get(voter, {})
                 cat_votes = voter_votes.get(category, {})
                 # Por padrão (caso não enviado/voto nulo), o voto é válido (True)
                 vote_is_valid = cat_votes.get(target_player, True)
-                
+
                 if not vote_is_valid:
                     invalid_votes += 1
                 else:
                     valid_votes += 1
-            
+
             # Uma palavra é inválida se a maioria dos jogadores votou CONTRA ela (invalid > valid)
             majority_needed = len(voters) / 2.0
             if invalid_votes > majority_needed:
@@ -99,22 +99,22 @@ def calculate_scores(
     """
     player_scores = {p: 0 for p in players}
     details = {p: {} for p in players}
-    
+
     for category in categories:
         # Mapeia palavra normalizada -> lista de jogadores que a usaram
         word_to_players = {}
         player_valid_words = {}
         player_raw_words = {}
-        
+
         # 1ª Passagem: validação básica (não vazio, letra correta, aprovada por votação)
         for player in players:
             raw_word = answers.get(player, {}).get(category, "").strip()
             is_valid_letter = is_word_valid(raw_word, letter)
             is_approved = approvals.get(player, {}).get(category, True)
-            
+
             is_valid = bool(raw_word) and is_valid_letter and is_approved
             player_raw_words[player] = raw_word
-            
+
             if is_valid:
                 norm = normalize_word(raw_word)
                 player_valid_words[player] = norm
@@ -128,7 +128,7 @@ def calculate_scores(
                     "valid": False,
                     "unique": False
                 }
-                
+
         # 2ª Passagem: atribuição dos pontos por categoria
         for player in players:
             raw_word = player_raw_words[player]
@@ -141,7 +141,7 @@ def calculate_scores(
                 else:
                     pts = POINTS_REPEATED
                     unique = False
-                
+
                 player_scores[player] += pts
                 details[player][category] = {
                     "word": raw_word,
@@ -149,7 +149,7 @@ def calculate_scores(
                     "valid": True,
                     "unique": unique
                 }
-                
+
     return player_scores, details
 
 def determine_winner(accumulated_scores: Dict[str, int]) -> str:

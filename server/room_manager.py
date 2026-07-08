@@ -48,7 +48,7 @@ class RoomManager:
                 with room.lock:
                     num_players = len(room.players)
                     status = room.state
-                
+
                 if num_players == 0:
                     del self.rooms[room_name]
                     room.cleanup()

@@ -17,28 +17,28 @@ class Room:
         self.categories = [str(c) for c in categories]
         self.num_rounds = int(num_rounds)
         self.current_round = 0
-        
+
         # lock for thread-safe state modifications
         self.lock = threading.Lock()
-        
+
         # players: nickname -> RPyC connection root (callback receiver)
         self.players: Dict[str, Any] = {}
-        
+
         self.state = "LOBBY"  # LOBBY, FILLING, VOTING, ROUND_END, GAME_OVER
         self.used_letters: Set[str] = set()
         self.accumulated_scores: Dict[str, int] = {}
-        
+
         # Jogadores que desconectaram durante a rodada ativa
         # Mantidos para que seus dados (respostas/pontos) sejam processados na rodada atual
         self.disconnected_players: Set[str] = set()
         # Flag para encerrar o jogo após a rodada atual (ex: restou só 1 jogador)
         self.force_game_over_after_round: bool = False
-        
+
         # Round-specific states
         self.letter = ""
         self.current_answers: Dict[str, Dict[str, str]] = {}  # nickname -> category -> word
         self.current_votes: Dict[str, Dict[str, Dict[str, bool]]] = {}  # nickname -> category -> player -> valid
-        
+
         # Timers
         self.filling_timer: Optional[threading.Timer] = None
         self.grace_timer: Optional[threading.Timer] = None
@@ -62,14 +62,14 @@ class Room:
                 return False
             if nickname in self.players:
                 return False
-            
+
             self.players[nickname] = callback
             self.accumulated_scores[nickname] = 0
-            
+
             # If host left earlier and list was empty, re-assign host
             if not self.host or self.host not in self.players:
                 self.host = nickname
-                
+
         # Notify after releasing lock to avoid deadlocks
         self.notify_all("on_player_joined", nickname)
         return True
@@ -84,18 +84,18 @@ class Room:
         with self.lock:
             if nickname not in self.players:
                 return
-            
+
             is_host = (self.host == nickname)
             was_lobby = (self.state == "LOBBY")
             is_game_active = self.state in ("FILLING", "VOTING", "ROUND_END", "PLAYING")
-            
+
             del self.players[nickname]
             # Keep the accumulated score for history, but player is no longer active
-            
+
             # Rastreia o jogador desconectado se o jogo estava ativo
             if is_game_active:
                 self.disconnected_players.add(nickname)
-            
+
             if not self.players:
                 empty_room = True
             elif is_host and was_lobby:
@@ -106,34 +106,34 @@ class Room:
                 # Reassign host if the host disconnected during game
                 if is_host:
                     self.host = list(self.players.keys())[0]
-            
+
             # Se o jogo está ativo e restou apenas 1 jogador, marcar para encerrar
             # após a rodada atual (ao invés de cancelar imediatamente)
             if is_game_active and not empty_room and not host_left_lobby:
                 if len(self.players) < MIN_PLAYERS:
                     self.force_game_over_after_round = True
-                
+
                 # Verifica se a desconexão desbloqueia a fase atual
                 if self.state == "FILLING":
                     check_filling = True
                 elif self.state == "VOTING":
                     check_voting = True
-                        
+
         if empty_room:
             self.cleanup()
             return
-        
+
         if host_left_lobby:
             self.cancel_game("O host encerrou a sala.")
             return
-        
+
         # Notify after releasing lock to avoid deadlock
         if should_notify_left:
             self.notify_all("on_player_left", nickname)
 
         if check_filling:
             self._check_and_end_filling_if_complete()
-            
+
         if check_voting:
             self._check_and_end_voting_if_complete()
 
@@ -145,10 +145,10 @@ class Room:
                 return False
             if self.state != "LOBBY":
                 return False
-            
+
             self.state = "PLAYING"
             self.current_round = 1
-            
+
         self.notify_all("on_game_started")
         self.start_round()
         return True
@@ -159,16 +159,16 @@ class Room:
             self.letter = engine.draw_letter(self.used_letters)
             self.current_answers = {}
             self.current_votes = {}
-            
+
             time_limit = FILL_TIME_PER_CATEGORY * len(self.categories)
-            
+
             # Start global filling timer
             self._cancel_timer("filling")
             self._cancel_timer("grace")
             self.filling_timer = threading.Timer(time_limit, self._on_filling_timeout)
             self.filling_timer.daemon = True
             self.filling_timer.start()
-            
+
         self.notify_all(
             "on_round_started",
             self.letter,
@@ -181,40 +181,40 @@ class Room:
         with self.lock:
             if self.state != "FILLING":
                 return
-            
+
             # Validate categories
             sanitized = {}
             for cat in self.categories:
                 sanitized[cat] = str(answers.get(cat, "")).strip()
-            
+
             self.current_answers[nickname] = sanitized
-            
+
         self._check_and_end_filling_if_complete()
 
     def request_stop(self, nickname: str, answers: Dict[str, str]) -> bool:
         with self.lock:
             if self.state != "FILLING":
                 return False
-            
+
             # Validate and save answers first
             sanitized = {}
             for cat in self.categories:
                 sanitized[cat] = str(answers.get(cat, "")).strip()
             self.current_answers[nickname] = sanitized
-            
+
             # Ensure the requesting player filled all categories
             has_all_filled = len(sanitized) == len(self.categories) and all(v != "" for v in sanitized.values())
-            
+
             if not has_all_filled:
                 return False
-            
+
             # Cancel general filling timer, start grace timer (5s) for remaining submissions
             self._cancel_timer("filling")
             self._cancel_timer("grace")
             self.grace_timer = threading.Timer(GRACE_PERIOD, self._on_grace_timeout)
             self.grace_timer.daemon = True
             self.grace_timer.start()
-            
+
         self.notify_all("on_stop", nickname)
         return True
 
@@ -222,7 +222,7 @@ class Room:
         with self.lock:
             if self.state != "VOTING":
                 return
-            
+
             # Format: votes = { category: { player: is_valid } }
             # Validate input structure — incluir jogadores desconectados que
             # ainda têm respostas nesta rodada (para que seus votos sejam contados)
@@ -234,9 +234,9 @@ class Room:
                 for p in all_round_players:
                     if p != nickname:
                         sanitized_votes[cat][p] = bool(cat_votes.get(p, True))
-            
+
             self.current_votes[nickname] = sanitized_votes
-            
+
         self._check_and_end_voting_if_complete()
 
     def _check_and_end_filling_if_complete(self):
@@ -248,7 +248,7 @@ class Room:
                 all_submitted = all(p in self.current_answers for p in self.players)
                 if all_submitted:
                     end_phase = True
-                    
+
         if end_phase:
             self.end_filling_phase()
 
@@ -264,29 +264,29 @@ class Room:
         with self.lock:
             if self.state != "FILLING":
                 return
-            
+
             self._cancel_timer("filling")
             self._cancel_timer("grace")
-            
+
             self.state = "VOTING"
-            
+
             # Fill missing answers with empty strings for players who didn't submit
             # Inclui jogadores conectados E desconectados nesta rodada
             all_round_players = set(self.players.keys()) | self.disconnected_players
             for p in all_round_players:
                 if p not in self.current_answers:
                     self.current_answers[p] = {cat: "" for cat in self.categories}
-            
+
             time_limit = VOTE_TIME_PER_CATEGORY * len(self.categories)
-            
+
             self._cancel_timer("voting")
             self.voting_timer = threading.Timer(time_limit, self._on_voting_timeout)
             self.voting_timer.daemon = True
             self.voting_timer.start()
-            
+
             # Deep copy answers dictionary to avoid threading netref issues
             answers_payload = {p: dict(ans) for p, ans in self.current_answers.items()}
-            
+
         self.notify_all("on_voting_started", answers_payload, time_limit)
 
     def _check_and_end_voting_if_complete(self):
@@ -296,7 +296,7 @@ class Room:
                 all_voted = all(p in self.current_votes for p in self.players)
                 if all_voted:
                     end_phase = True
-                    
+
         if end_phase:
             self.end_voting_phase()
 
@@ -307,15 +307,15 @@ class Room:
         with self.lock:
             if self.state != "VOTING":
                 return
-            
+
             self._cancel_timer("voting")
             self.state = "ROUND_END"
-            
+
             # Lista combinada: jogadores conectados + desconectados nesta rodada
             # para que os pontos dos desconectados sejam computados
             all_round_players = list(self.players.keys()) + list(self.disconnected_players)
             connected_players = list(self.players.keys())
-            
+
             # Fill missing votes with True (valid) — apenas para jogadores conectados
             # Jogadores desconectados não votam, seus votos são ignorados
             for p in connected_players:
@@ -324,7 +324,7 @@ class Room:
                         cat: {other: True for other in all_round_players if other != p}
                         for cat in self.categories
                     }
-            
+
             # Tally votes & calculate scores usando todos os jogadores da rodada
             approvals = engine.tally_votes(
                 all_round_players,
@@ -332,7 +332,7 @@ class Room:
                 self.current_votes,
                 self.current_answers
             )
-            
+
             round_scores, details = engine.calculate_scores(
                 all_round_players,
                 self.categories,
@@ -340,18 +340,18 @@ class Room:
                 self.current_answers,
                 approvals
             )
-            
+
             # Update cumulative scores
             for p, score in round_scores.items():
                 self.accumulated_scores[p] = self.accumulated_scores.get(p, 0) + score
-                
+
             # Build ranking
             sorted_ranking = sorted(
                 self.accumulated_scores.items(),
                 key=lambda x: x[1],
                 reverse=True
             )
-            
+
             # Create serialized RoundResult
             result = RoundResult(
                 player_scores=round_scores,
@@ -362,15 +362,15 @@ class Room:
                 letter=self.letter,
                 details=details
             )
-            
+
             result_payload = result.to_dict()
-            
+
             # Set up timer to transition to the next round (or finish) after 5s
             self._cancel_timer("results")
             self.results_timer = threading.Timer(5, self.start_next_round_or_finish)
             self.results_timer.daemon = True
             self.results_timer.start()
-            
+
         self.notify_all("on_round_results", result_payload)
 
     def start_next_round_or_finish(self):
@@ -381,9 +381,9 @@ class Room:
         with self.lock:
             if self.state != "ROUND_END":
                 return
-            
+
             self._cancel_timer("results")
-            
+
             # Se restou apenas 1 jogador (ou menos), encerrar o jogo
             if self.force_game_over_after_round:
                 self.state = "GAME_OVER"
@@ -407,7 +407,7 @@ class Room:
                     key=lambda x: x[1],
                     reverse=True
                 )
-                
+
         if should_start_round:
             self.start_round()
         elif should_end_game:
@@ -424,7 +424,7 @@ class Room:
         # Thread-safe copy of callbacks
         with self.lock:
             active_players = list(self.players.items())
-            
+
         for nickname, callback in active_players:
             try:
                 # Call callback method asynchronously to prevent deadlocks

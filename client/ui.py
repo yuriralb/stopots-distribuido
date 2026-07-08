@@ -45,16 +45,16 @@ def input_with_timer_and_stop_event(prompt: str, stop_event: Any, timeout_at: fl
     try:
         # Define modo cbreak (lê caractere a caractere sem esperar newline, mas preserva sinais como Ctrl+C)
         tty.setcbreak(fd)
-        
+
         while not stop_event.is_set():
             time_left = max(0, int(timeout_at - time.time()))
             if time_left <= 0:
                 break
-            
+
             # Desenha o prompt com o timer (cor azul) e o buffer digitado
             sys.stdout.write(f"\r\033[K[{BLUE}Tempo: {time_left}s{RESET}] {prompt}{buffer}")
             sys.stdout.flush()
-            
+
             # Monitora a entrada do stdin com timeout curto para checar stop_event e atualizar timer
             rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
             if rlist:
@@ -69,7 +69,7 @@ def input_with_timer_and_stop_event(prompt: str, stop_event: Any, timeout_at: fl
                     raise KeyboardInterrupt()
                 elif ord(char) >= 32:  # Caracteres imprimíveis
                     buffer += char
-        
+
         sys.stdout.write("\n")
         sys.stdout.flush()
         return buffer.strip() if buffer else None
@@ -98,7 +98,7 @@ class TerminalUI:
             print(f"{BOLD}4.{RESET} Sair")
             print("-" * 55)
             choice = input(f"{BOLD}Escolha uma opção (1-4): {RESET}").strip()
-            
+
             if choice == "1":
                 self.action_create_room()
             elif choice == "2":
@@ -117,20 +117,20 @@ class TerminalUI:
         clear_screen()
         self.show_banner()
         print(f"{BOLD}=== CRIAR SALA ==={RESET}\n")
-        
+
         nickname = safe_input("Digite seu Nickname: ", lambda name : name, "Digite um nickname não-vazio, bundão!").strip()
 
         room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
         print(f"\nCategorias padrão: {', '.join(DEFAULT_CATEGORIES)}")
         use_custom = safe_input("Deseja criar categorias personalizadas? (S/N): ", lambda c : c.lower() in {'s','n'}, "Escolha uma opção válida, bobão!").strip().lower()
-        
+
         categories = DEFAULT_CATEGORIES
         if use_custom == "s":
             custom_cats = input("Digite as categorias separadas por vírgula: ").strip()
             if custom_cats:
                 categories += [c.strip() for c in custom_cats.split(",") if c.strip()]
-        
+
         while True:
             rounds_input = input("Número de Rodadas (Padrão 5): ").strip()
             num_rounds = 5
@@ -153,7 +153,7 @@ class TerminalUI:
         clear_screen()
         self.show_banner()
         print(f"{BOLD}=== SALAS DISPONÍVEIS ==={RESET}\n")
-        
+
         rooms = self.conn.list_rooms()
         if not rooms:
             print("Nenhuma sala aberta no momento.")
@@ -166,7 +166,7 @@ class TerminalUI:
         for r in rooms:
             print(f"{r['name']:<20} | {r['host']:<15} | {r['player_count']:<10} | {r['num_rounds']:<8}")
         print("-" * 60)
-        
+
         join_choice = input("\nDigite o nome da sala para entrar ou pressione Enter para voltar: ").strip()
         if join_choice:
             nickname = input("Digite seu Nickname: ").strip()
@@ -174,7 +174,7 @@ class TerminalUI:
                 print(f"{RED}Nickname inválido!{RESET}")
                 time.sleep(1.5)
                 return
-            
+
             print("\nEntrando na sala...")
             if self.conn.join_room(join_choice, nickname):
                 print(f"{GREEN}Entrou na sala!{RESET}")
@@ -188,7 +188,7 @@ class TerminalUI:
         clear_screen()
         self.show_banner()
         print(f"{BOLD}=== ENTRAR EM SALA ==={RESET}\n")
-        
+
         room_name = safe_input("Nome da Sala: ", lambda name : name, "Nome da sala não pode ser vazio, salafrário!").strip()
 
         nickname = safe_input("Digite seu Nickname: ", lambda name : name, "Digite um nickname não-vazio, bundão!").strip()
@@ -215,7 +215,7 @@ class TerminalUI:
                     room_name = self.state.room_name
                     game_started = self.state.game_started_event.is_set()
                     cancelled = self.state.cancelled_event.is_set()
-                
+
                 if game_started:
                     break
                 if cancelled:
@@ -224,7 +224,7 @@ class TerminalUI:
                     self.conn.leave_room()
                     self.conn.reconnect()
                     return
-                
+
                 # Só limpa e redesenha a tela se houver mudança na lista de jogadores
                 if current_players != last_players:
                     clear_screen()
@@ -243,7 +243,7 @@ class TerminalUI:
                         print("Aguardando o host iniciar a partida...")
                         print("Pressione 'S' para Sair da sala.")
                     last_players = current_players
-                
+
                 # Aguarda tecla sem bloquear por muito tempo
                 rlist, _, _ = select.select([sys.stdin], [], [], 0.5)
                 if rlist:
@@ -262,7 +262,7 @@ class TerminalUI:
                         return
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            
+
         # Iniciando fluxo principal do jogo
         self.run_game_loop()
 
@@ -270,7 +270,7 @@ class TerminalUI:
         while True:
             # 1. Aguarda início da rodada pelo servidor
             self.state.round_started_event.wait()
-            
+
             with self.state.lock:
                 if self.state.game_over_event.is_set():
                     self.state.game_over_event.clear()
@@ -278,7 +278,7 @@ class TerminalUI:
                     show_game_over = True
                 else:
                     show_game_over = False
-                
+
                 if show_game_over:
                     pass  # Tratado abaixo fora do lock
                 elif self.state.cancelled_event.is_set():
@@ -288,18 +288,18 @@ class TerminalUI:
                     show_cancelled = True
                 else:
                     show_cancelled = False
-            
+
             if show_game_over:
                 self.show_game_over()
                 break
-            
+
             if show_cancelled:
                 print(f"\n{RED}Partida interrompida: {cancelled_reason}{RESET}")
                 input("\nPressione Enter para voltar ao menu...")
                 self.conn.leave_room()
                 self.conn.reconnect()
                 break
-            
+
             with self.state.lock:
                 letter = self.state.current_letter
                 round_num = self.state.round_number
@@ -307,16 +307,16 @@ class TerminalUI:
                 time_limit = self.state.time_limit
                 categories = list(self.state.players) # não, as categorias da sala
                 # Na verdade as categorias estão salvas na sala, mas precisamos passá-las ou tê-las no estado local
-                
+
             # Recupera categorias do setup original
             with self.state.lock:
                 categories = list(self.state.all_answers.get(self.state.nickname, {}).keys())
                 # Se ainda não estiver preenchido o dict local de respostas vazias, criamos
                 if not categories:
                     categories = self.state.categories
-            
+
             self.state.round_started_event.clear()
-            
+
             clear_screen()
             print(f"{CYAN}{BOLD}" + "=" * 55)
             print(f"               RODADA {round_num} DE {total_rounds}             ")
@@ -324,43 +324,43 @@ class TerminalUI:
             print(f"Letra Sorteada: {YELLOW}{BOLD}{letter}{RESET}")
             print(f"Categorias: {', '.join(categories)}")
             print("-" * 55)
-            
+
             # 2. Fase de preenchimento das respostas
             answers = self.run_filling_phase(categories, letter, time_limit)
-            
+
             # Envia as respostas ao servidor
             self.conn.submit_answers(answers)
-            
+
             # 3. Aguarda fase de votação iniciar
             clear_screen()
             print("Aguardando finalização do preenchimento de todos os jogadores...")
-            
+
             # Aguarda evento de votação
             self.state.voting_started_event.wait()
             self.state.voting_started_event.clear()
-            
+
             # 4. Fase de Votação — uma categoria por vez com timer de 15s
             votes = self.run_voting_phase(categories)
-            
+
             # Envia os votos ao servidor
             self.conn.submit_votes(votes)
-            
+
             clear_screen()
             print("Aguardando finalização da votação de todos os jogadores...")
-            
+
             # 5. Aguarda resultados da rodada
             self.state.results_received_event.wait()
             self.state.results_received_event.clear()
-            
+
             # Exibe o placar da rodada
             self.show_round_results()
-            
+
             # Checa se o jogo acabou ANTES do countdown
             if self.state.game_over_event.is_set():
                 self.state.game_over_event.clear()
                 self.show_game_over()
                 break
-                
+
             if self.state.cancelled_event.is_set():
                 print(f"\n{RED}Partida interrompida: {self.state.cancelled_reason}{RESET}")
                 input("\nPressione Enter para voltar ao menu...")
@@ -368,7 +368,7 @@ class TerminalUI:
                 self.conn.leave_room()
                 self.conn.reconnect()
                 break
-            
+
             # Espera 5 segundos visualmente para iniciar a próxima rodada
             for i in range(5, 0, -1):
                 if self.state.game_over_event.is_set() or self.state.cancelled_event.is_set():
@@ -377,13 +377,13 @@ class TerminalUI:
                 sys.stdout.flush()
                 time.sleep(1)
             print()
-            
+
             # Verifica novamente se o jogo acabou durante o countdown
             if self.state.game_over_event.is_set():
                 self.state.game_over_event.clear()
                 self.show_game_over()
                 break
-                
+
             if self.state.cancelled_event.is_set():
                 print(f"\n{RED}Partida interrompida: {self.state.cancelled_reason}{RESET}")
                 input("\nPressione Enter para voltar ao menu...")
@@ -408,16 +408,16 @@ class TerminalUI:
             for idx, cat in enumerate(categories):
                 print(f" • [{idx + 1}] {BOLD}{cat:<12}:{RESET} {answers[cat]}")
             print("-" * 55)
-            
+
             if cat_idx < num_cats:
                 cat = categories[cat_idx]
                 prompt = f"Preencha [{cat}]: "
                 ans = input_with_timer_and_stop_event(prompt, self.state.stop_event, timeout_at)
-                
+
                 if ans is None:
                     # Timeout ou stop externo acionado
                     break
-                
+
                 if ans.lower() == "/stop":
                     all_filled = all(v != "" for v in answers.values())
                     if all_filled:
@@ -444,13 +444,13 @@ class TerminalUI:
                 print(f" - Digite o número (1 a {num_cats}) da categoria para alterar")
                 print(" - Digite '/stop' para acionar o STOP")
                 print(" - Pressione Enter para aguardar o fim do tempo")
-                
+
                 prompt = "Escolha: "
                 choice = input_with_timer_and_stop_event(prompt, self.state.stop_event, timeout_at)
-                
+
                 if choice is None:
                     break
-                
+
                 if choice.lower() == "/stop":
                     all_filled = all(v != "" for v in answers.values())
                     if all_filled:
@@ -468,70 +468,70 @@ class TerminalUI:
                     while not self.state.stop_event.is_set() and time.time() < timeout_at:
                         time.sleep(0.2)
                     break
-                    
+
         # Se foi interrompido por STOP ou timeout, mostra aviso
         if self.state.stop_event.is_set():
             who = self.state.who_stopped
             print(f"\n{RED}{BOLD}STOP! Rodada encerrada por: {who}{RESET}")
             time.sleep(2)
-            
+
         return answers
 
     def run_voting_phase(self, categories: List[str]) -> Dict[str, Dict[str, bool]]:
         votes = {cat: {} for cat in categories}
-        
+
         with self.state.lock:
             all_answers = dict(self.state.all_answers)
             players = list(self.state.players)
             nickname = self.state.nickname
             vote_time = self.state.vote_time_per_category
-        
+
         # Filtra apenas os outros jogadores (não vota em si mesmo)
         other_players = [p for p in players if p != nickname]
-        
+
         total_cats = len(categories)
-        
+
         for cat_idx, cat in enumerate(categories):
             # === TELA DE VOTAÇÃO PARA ESTA CATEGORIA ===
             cat_timeout_at = time.time() + vote_time
             cat_interrupted = False
-            
+
             # Coleta as respostas dos outros jogadores para esta categoria
             player_words = []
             for player in other_players:
                 word = all_answers.get(player, {}).get(cat, "").strip()
                 player_words.append((player, word))
-            
+
             # Marca automaticamente palavras em branco como inválidas
             for player, word in player_words:
                 if not word:
                     votes[cat][player] = False
-            
+
             # Filtra jogadores que precisam de votação manual (palavra não vazia)
             players_to_vote = [(p, w) for p, w in player_words if w]
             vote_idx = 0
-            
+
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
                 tty.setcbreak(fd)
-                
+
                 while vote_idx < len(players_to_vote):
                     time_left = max(0, int(cat_timeout_at - time.time()))
                     if time_left <= 0:
                         cat_interrupted = True
                         break
-                    
+
                     # Redesenha a tela completa da categoria
                     clear_screen()
                     self.show_banner()
                     print(f"{BOLD}{'═' * 55}{RESET}")
                     print(f"  {MAGENTA}{BOLD}VOTAÇÃO{RESET} — Categoria {cat_idx + 1}/{total_cats}: {CYAN}{BOLD}{cat.upper()}{RESET}")
                     print(f"{BOLD}{'═' * 55}{RESET}")
-                    
+
                     # Timer visual
                     timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
-                    
+
                     # Mostra todas as respostas com status
                     for p_idx, (player, word) in enumerate(player_words):
                         if not word:
@@ -549,12 +549,12 @@ class TerminalUI:
                         else:
                             # Pendente
                             print(f"  {BLUE}○{RESET} {BOLD}{player}{RESET}: '{word}' — {BLUE}pendente{RESET}")
-                    
+
                     print(f"{'─' * 55}")
-                    
+
                     # Aguarda input não-bloqueante
                     current_player, current_word = players_to_vote[vote_idx]
-                    
+
                     # Poll para input com update de timer
                     got_input = False
                     while not got_input:
@@ -562,11 +562,11 @@ class TerminalUI:
                         if time_left <= 0:
                             cat_interrupted = True
                             break
-                        
+
                         # Prompt inline com timer
                         sys.stdout.write(f"\r\033[K  [{timer_color}Tempo: {time_left}s{RESET}] Voto para '{BOLD}{current_player}{RESET}': ")
                         sys.stdout.flush()
-                        
+
                         rlist, _, _ = select.select([sys.stdin], [], [], 0.5)
                         if rlist:
                             char = sys.stdin.read(1).lower()
@@ -578,24 +578,24 @@ class TerminalUI:
                                 got_input = True
                             elif char == '\x03':
                                 raise KeyboardInterrupt()
-                        
+
                         # Atualiza cor do timer
                         time_left = max(0, int(cat_timeout_at - time.time()))
                         timer_color = GREEN if time_left > 5 else (YELLOW if time_left > 2 else RED)
-                    
+
                     if cat_interrupted:
                         break
-                    
+
                     vote_idx += 1
-                    
+
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            
+
             # Votos não dados para esta categoria → válidos por padrão (RF04.4)
             for player, word in players_to_vote:
                 if player not in votes[cat]:
                     votes[cat][player] = True
-            
+
             # Tela de resumo rápido da categoria votada
             clear_screen()
             self.show_banner()
@@ -610,27 +610,27 @@ class TerminalUI:
                 else:
                     print(f"  {RED}✗{RESET} {player}: '{word}' → Inválida")
             print(f"{'─' * 55}")
-            
+
             if cat_idx < total_cats - 1:
                 print(f"\n  Próxima categoria em 2s...")
                 time.sleep(2)
             else:
                 print(f"\n  {GREEN}{BOLD}Votação finalizada!{RESET} Enviando votos...")
                 time.sleep(1)
-        
+
         return votes
 
     def show_round_results(self):
         clear_screen()
         self.show_banner()
-        
+
         with self.state.lock:
             res = dict(self.state.round_results)
-            
+
         if not res:
             print("Erro ao carregar resultados.")
             return
-            
+
         round_num = res["round_number"]
         total_rounds = res["total_rounds"]
         letter = res["letter"]
@@ -638,9 +638,9 @@ class TerminalUI:
         accumulated_scores = res["accumulated_scores"]
         ranking = res["ranking"]
         details = res["details"]
-        
+
         print(f"{BOLD}=== RESULTADO DA RODADA {round_num} DE {total_rounds} (Letra '{letter}') ==={RESET}\n")
-        
+
         # Detalhamento de respostas por jogador
         for player, cats_data in details.items():
             print(f"{BOLD}{player}{RESET}:")
@@ -649,7 +649,7 @@ class TerminalUI:
                 pts = data["points"]
                 valid = data["valid"]
                 unique = data["unique"]
-                
+
                 if not word:
                     status = f"{RED}Em branco{RESET}"
                 elif not valid:
@@ -658,11 +658,11 @@ class TerminalUI:
                     status = f"{GREEN}Válida e Única (+10 pts){RESET}"
                 else:
                     status = f"{YELLOW}Válida mas Repetida (+5 pts){RESET}"
-                
+
                 print(f"  • {cat:<12}: '{word}' -> {status}")
             print(f"  Total da rodada: {BOLD}{player_scores[player]} pts{RESET}")
             print("-" * 55)
-            
+
         # Scoreboard
         print(f"\n{BOLD}=== SCOREBOARD ACUMULADO ==={RESET}")
         print(f"{BOLD}{'Posição':<8} | {'Jogador':<20} | {'Rodada':<10} | {'Acumulado':<10}{RESET}")
@@ -676,20 +676,20 @@ class TerminalUI:
     def show_game_over(self):
         clear_screen()
         self.show_banner()
-        
+
         with self.state.lock:
             ranking = list(self.state.final_ranking)
-        
+
         print(f"{YELLOW}{BOLD}")
         print("╔═══════════════════════════════════════════════════╗")
-        print("║           🏆  PARTIDA CONCLUÍDA!  🏆            ║")
+        print("║            🏆  PARTIDA CONCLUÍDA!  🏆            ║")
         print("╚═══════════════════════════════════════════════════╝")
         print(f"{RESET}")
-            
+
         if ranking:
             winner = ranking[0][0]
             winner_score = ranking[0][1]
-            
+
             # ASCII art do troféu com nome do campeão
             print(f"{YELLOW}{BOLD}")
             print("                    ___________")
@@ -703,18 +703,18 @@ class TerminalUI:
             print("                      _.' '._")
             print("                     '-------'")
             print(f"{RESET}")
-            
+
             print(f"  {BOLD}O GRANDE CAMPEÃO É:{RESET}")
             print(f"  {YELLOW}{BOLD}  ★  {winner}  ★  {RESET} com {GREEN}{BOLD}{winner_score} pontos!{RESET}")
             print()
-            
+
             # Ranking final estilizado
             print(f"{BOLD}{'═' * 55}{RESET}")
             print(f"  {BOLD}RANKING FINAL{RESET}")
             print(f"{BOLD}{'═' * 55}{RESET}")
             print(f"  {BOLD}{'Pos':<5} {'Jogador':<25} {'Pontos':<10}{RESET}")
             print(f"  {'─' * 45}")
-            
+
             for idx, (p, score) in enumerate(ranking):
                 pos = idx + 1
                 if pos == 1:
@@ -729,13 +729,13 @@ class TerminalUI:
                 else:
                     medal = "   "
                     color = ""
-                
+
                 print(f"  {medal} {color}{BOLD}{pos:<3}{RESET} {color}{p:<25}{RESET} {color}{BOLD}{score:<10}{RESET}")
-            
+
             print(f"  {'─' * 45}")
         else:
             print("  Não houve ranking final disponível.")
-        
+
         print()
         input(f"  Pressione {BOLD}Enter{RESET} para voltar ao menu principal...")
         self.conn.leave_room()

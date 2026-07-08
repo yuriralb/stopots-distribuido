@@ -82,7 +82,7 @@ class ServerConnection:
                 self.conn.root.leave_room(self.state.nickname)
             except Exception:
                 pass
-        
+
         self._close_connection()
         self.state.reset_all()
 
