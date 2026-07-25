@@ -68,7 +68,6 @@ class ClientCallbackService(rpyc.Service):
         with self.state.lock:
             if nickname not in self.state.players:
                 self.state.players.append(nickname)
-        # Avisa o console sem corromper a tela, se possível. (Será tratado na UI)
 
     def exposed_on_player_left(self, nickname: str):
         with self.state.lock:
@@ -98,7 +97,6 @@ class ClientCallbackService(rpyc.Service):
     def exposed_on_voting_started(self, all_answers: Dict[str, Dict[str, str]], time_limit: int):
         with self.state.lock:
             self.state.game_state = "VOTING"
-            # Converte netrefs do RPyC em dicionários puros do Python
             self.state.all_answers = {p: dict(ans) for p, ans in all_answers.items()}
             self.state.time_limit = time_limit
             # Calcula tempo por categoria a partir do total

@@ -35,13 +35,13 @@ class RoomInfo:
 
 @dataclass
 class RoundResult:
-    player_scores: Dict[str, int]        # nickname -> round points
-    accumulated_scores: Dict[str, int]  # nickname -> total points
-    ranking: List[Tuple[str, int]]      # list of (nickname, total points) sorted descending
+    player_scores: Dict[str, int]        # nickname -> pontuação na rodada
+    accumulated_scores: Dict[str, int]  # nickname -> pontuação total
+    ranking: List[Tuple[str, int]]      # lista de (nickname, pontuação total) em ordem decrescente
     round_number: int
     total_rounds: int
     letter: str
-    # details: nickname -> category -> {"word": str, "points": int, "valid": bool, "unique": bool}
+    # details: nickname -> categoria -> {"palavra": str, "pontuação": int, "válido?": bool, "único?": bool}
     details: Dict[str, Dict[str, Dict[str, Any]]]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,7 +57,6 @@ class RoundResult:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RoundResult":
-        # ranking comes back as list of lists/tuples from network, cast to proper type
         ranking_list = [tuple(item) for item in data["ranking"]]
         return cls(
             player_scores=dict(data["player_scores"]),

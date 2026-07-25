@@ -11,7 +11,7 @@ from client.service import ClientState
 from client.connection import ServerConnection
 from shared.constants import DEFAULT_CATEGORIES, MIN_PLAYERS
 
-# Cores ANSI para deixar o terminal premium
+# Cores ANSI para deixar o terminal bonitinho
 RESET = "\033[0m"
 BOLD = "\033[1m"
 RED = "\033[31m"
@@ -305,8 +305,7 @@ class TerminalUI:
                 round_num = self.state.round_number
                 total_rounds = self.state.total_rounds
                 time_limit = self.state.time_limit
-                categories = list(self.state.players) # não, as categorias da sala
-                # Na verdade as categorias estão salvas na sala, mas precisamos passá-las ou tê-las no estado local
+                categories = list(self.state.players)
 
             # Recupera categorias do setup original
             with self.state.lock:
@@ -492,7 +491,7 @@ class TerminalUI:
         total_cats = len(categories)
 
         for cat_idx, cat in enumerate(categories):
-            # === TELA DE VOTAÇÃO PARA ESTA CATEGORIA ===
+            # Tela de votação por categoria
             cat_timeout_at = time.time() + vote_time
             cat_interrupted = False
 
